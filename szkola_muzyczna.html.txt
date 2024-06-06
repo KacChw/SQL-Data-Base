@@ -1,0 +1,136 @@
+<html>
+<head>
+    <title>Projekt Bazy Danych</title>
+</head>
+<body>
+<h1> PLAN LEKCJI - SZKOŁA MUZYCZNA </h1>
+<?php
+// Połączmy się z bazą danych
+$dbh = pg_connect("dbname=szkola_muzyczna user=silacz password=BazyDanych123 host=localhost") or die("Nie mogę połączyć się z bazą danych!");
+
+// Obsługa formularza dodawania lekcji
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['Dodaj'])) {
+    // Odbierz dane z formularza
+    $nauczyciel_id = $_POST['nauczyciel_id'];
+    $uczen_id = $_POST['uczen_id'];
+    $instrument_id = $_POST['instrument_id'];
+    $data_lekcji = $_POST['data_lekcji'];
+    $godzina = $_POST['godzina'];
+
+    // Wykonaj zapytanie dodające nową lekcję
+    $query = "INSERT INTO lekcje(nauczyciel_id, uczen_id, instrument_id, data_lekcji, godzina) VALUES ('$nauczyciel_id', '$uczen_id', '$instrument_id', '$data_lekcji', '$godzina') RETURNIN>
+    $wynik = pg_query($dbh, $query);
+
+    if ($wynik) {
+        $id_lekcji = pg_fetch_result($wynik, 0, 'id_lekcji');
+        echo "Dodano nową lekcję do bazy danych. ID lekcji: $id_lekcji";
+    } else {
+        echo "Błąd podczas dodawania lekcji: " . pg_last_error($dbh);
+    }
+}
+// Wyświetl istniejące lekcje
+$query = "SELECT * FROM lekcje";
+$wynik = pg_query($dbh, $query);
+
+echo "<TABLE border width=1>";
+echo "<TR>";
+for ($k = 0; $k < pg_num_fields($wynik); $k++) {
+    echo "<TD>";
+    echo pg_field_name($wynik, $k);
+    echo "</TD>";
+}
+echo "<td>Usun</td><td>Edytuj</td></TR>";
+
+while ($wiersz = pg_fetch_assoc($wynik)) {
+    echo "<TR>";
+    foreach ($wiersz as $wartosc) {
+        echo "<TD>$wartosc</TD>";
+    }
+    // Dodaj formularz do usuwania lekcji
+    echo "<td><form action=usun.php method=POST>
+    <input type=hidden name=idos value={$wiersz['id_lekcji']}>
+    <input type=submit name=usun value=Usun></form></td>";
+    // Dodaj formularz do edycji lekcji
+    echo "<td><form action=edytuj.php method=POST>
+    <input type=hidden name=idos value={$wiersz['id_lekcji']}>
+    <input type=submit name=edytuj value=Edytuj></form></td>";
+    echo "</TR>";
+}
+echo "</TABLE>";
+
+// Funkcja do wyświetlania tabeli
+function wyswietlTabele($tabela) {
+    global $dbh;
+
+    $query = "SELECT * FROM $tabela";
+    $wynik = pg_query($dbh, $query);
+
+    echo "<h2>Tabela: $tabela</h2>";
+    echo "<form method='post' action='edytuj_tabele.php'>";
+    echo "<TABLE border width=1>";
+    echo "<TR>";
+
+    for ($k = 0; $k < pg_num_fields($wynik); $k++) {
+        echo "<TD>";
+        echo pg_field_name($wynik, $k);
+        echo "</TD>";
+    }
+
+    echo "<td>Akcja</td></TR>";
+
+    while ($wiersz = pg_fetch_assoc($wynik)) {
+        echo "<TR>";
+        foreach ($wiersz as $klucz => $wartosc) {
+            echo "<TD>$wartosc</TD>";
+        }
+        echo "<td><input type='radio' name='edycja' value='{$wiersz['id_lekcji']}'></td>";
+        echo "</TR>";
+    }
+
+    echo "</TABLE>";
+    echo "<input type='hidden' name='tabela' value='$tabela'>";
+    echo "<input type='submit' name='EdytujTabele' value='Edytuj'>";
+    echo "</form>";
+}
+// Obsługa formularza wyboru tabeli
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['WybierzTabele'])) {
+    $wybranaTabela = $_POST['tabela'];
+    wyswietlTabele($wybranaTabela);
+}
+
+// Obsługa formularza edycji tabeli
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['EdytujTabele'])) {
+    $wybranaTabela = $_POST['tabela'];
+    $id_do_aktualizacji = $_POST['edycja'];
+    header("Location: edytuj_tabele.php?tabela=$wybranaTabela&id=$id_do_aktualizacji");
+    exit();
+}
+
+// Wybór tabeli
+echo "<h2>Wybierz tabelę do wyświetlenia</h2>";
+echo "<form method=post action=''>";
+echo "Tabela: ";
+echo "<select name='tabela'>";
+echo "<option value='lekcje'>lekcje</option>";
+echo "<option value='nauczyciele'>nauczyciele</option>";
+echo "<option value='uczniowie'>uczniowie</option>";
+// Dodaj inne opcje, jeśli są inne tabele w bazie
+echo "</select>";
+echo "<input type=submit name=WybierzTabele value=Wybierz>";
+echo "</form>";
+
+// Formularz dodawania lekcji
+echo "<h2>Dodaj lekcję</h2>";
+echo "<form method=post action=''>";
+echo "Nauczyciel ID: <input type=text name=nauczyciel_id required><br>";
+echo "Uczeń ID: <input type=text name=uczen_id required><br>";
+echo "Instrument ID: <input type=text name=instrument_id required><br>";
+echo "Data lekcji: <input type=text name=data_lekcji required><br>";
+echo "Godzina: <input type=text name=godzina required><br>";
+echo "<input type=submit name=Dodaj value=Dodaj>";
+echo "</form>";
+
+pg_close($dbh);
+?>
+</body>
+</html>
